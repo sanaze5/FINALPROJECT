@@ -1,0 +1,48 @@
+---
+title: "pstat122-lab2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+
+summary(midwest$percollege)
+
+college_edu <- midwest$percollege
+x_bar <- mean(college_edu)
+n <- nrow(midwest)
+s <- sd(college_edu)
+test_statistic_1 <- (x_bar-32)/(s/sqrt(n))
+critical_value <- qt(p=0.05,df=(n-1))
+#one sample ttest you can use sd function 
+
+t.test(college_edu, mu=32, alternative="less")
+
+#two- sample t test 
+
+df2 <- midwest %>%
+  filter(state=="OH" | state=="MI")
+
+df2 %>%
+  group_by(state) %>%
+  summarise(mean(percollege))
+ggplot(df2,aes(state))
+
+t.test(,y,alternative="two.sided",var.equal= FALSE)
+```
+
+```{r}
+data(sleep)
+sleep
+
+#two ways to run this sample, 
+#t.test with one data set which is the difference between the two 
+#or t.test with both data tests and paired=TRUE 
+```
+

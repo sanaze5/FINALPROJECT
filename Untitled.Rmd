@@ -1,0 +1,502 @@
+---
+title: "exploratory"
+output: html_document:
+  cold_folding: hide
+---
+
+# Final Project
+
+#### By Sanaz Ebrahimi
+
+## Introduction
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Loading Packages
+
+We need to load the necessary packages in here so that we can access functions for our eda and model running later on.
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(janitor)
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+
+library(ISLR)
+library(ISLR2)
+#install.packages("discrim")
+library(discrim)
+library(poissonreg)
+library(corrr)
+library(klaR)
+library(corrplot)
+
+library(ggthemes)
+tidymodels_prefer()
+
+```
+
+### Data Cleaning
+
+```{r}
+msocf22 <- read_csv("ucsb_msoc_fall2022.csv") %>% 
+  clean_names() 
+
+msocf22 %>% 
+  filter(event_result != "No Result")
+
+```
+
+```{r}
+msocf22 %>% 
+  # filter(event_result != "No Result") %>% 
+  group_by(event_date)
+#take out halftime 
+
+```
+
+The clean_names() function here is very useful because it puts every column title in snake case meaning each word is connected with an underscore and everything is lowercase. This will make it much easier later on when we have to call different columns in r. The data had broken every game into three different events, first half, second half, and combined game, to avoid having all three of these we filtered it so that only the full games would be available for data analysis avoiding errors that would be caused to replicates.
+
+```{r}
+msocf22 <- msocf22%>%
+  mutate(total_impact = impact_light + impact_medium+impact_heavy)
+msocf22
+
+#msocf22 <- msocf22 %>%
+ # mutate(total_impact = factor(total_impact))
+#msocf22
+
+```
+
+The outcome variable total_impact did not come in the given data, so we had to mutate a column in for it into the data set. The total_impact is the sum of impact_light, impact_medium and impact_heavy.
+
+```{r}
+msocf22 %>% 
+  filter(segment_name == "*")
+# we want to make sure we don't account for half time just the whole game 
+msocf22 <- msocf22 %>%
+  select(-c(starts_with("hr")))
+msocf22 <- msocf22 %>% 
+  select (-c(impact_light,impact_medium,impact_heavy,event_tags,total_distance_m)) # each impact factors into total impact so the same way we had to factor age of the abalone data we must do the same here, event_tags was just an unnecessary row we had 
+msocf22 <- msocf22 %>%
+  select(-c(total_distance_m))
+msocf22
+```
+
+Again to deal with the replicate rows that account for each games 1st half, 2nd half and full game we want to filter our data to only include events with segment name "*" because this column includes "1st Half" and "2nd Half". By getting rid of the first and second half we successfully keep the full game data points in our data set. Next we want to take out all the columns starting with "hr" because they are all empty and this way our data will look more concise(same with "event_tags". Lastly we must take out rows "impact_light", "impact_heavy", and "impact_medium" because the sum of these three columns adds up to our outcome. We do not want this in our data set because it would make the data colinear and ruin the predictions we are trying to get by fitting the models later. #IS CONLINEAR CORRECRT The total_distance_m also has to be taken out because it is just the sum of walk_distance_m, jog_distance_m, run_distance_m, and sprint_distance_m. 
+
+```{r}
+msocf22 #one last check up on the data 
+```
+
+### Data Splitting
+
+```{r}
+set.seed(5555) #so that the same random variables are used when we re run the code 
+
+msocf22_split <- initial_split(msocf22, prop = 0.70,
+                               strata = total_impact) #stratifying on the outcome variable 
+msocf22_train <- training(msocf22_split)
+msocf22_test <- testing(msocf22_split)
+
+dim(msocf22_train)/nrow(msocf22) #checking if the proportions of the split data are correct 
+dim(msocf22_test)/nrow(msocf22)
+```
+
+We want to split our data into a testing and training data set stratifying on the outcome. We stratify on outcome because we would like to maintain the distribution of the outcome for all the resamples. In the first line of this code block we set.seed() so that the same random variables are used every time we rerun the code. 
+
+```{r,fig.height= 4.25, fig.width= 20} 
+
+library(corrplot)
+
+msocf22_train %>%
+  select_if(is.numeric) %>% 
+  cor() %>% 
+  corrplot(type = "lower")
+```
+Here we construct a huge correlation plot with all the possible relevant predictors so far to see if anything stands out and if we should be cautious of that. The first thing that should catch your eyes is that "jog_distance_m" and "zone_2_distance_m" have a perfect positive correlation and so does "walk_distance_m" and "zone_distance_1". This can be explained by the fact that these zone speeds are the exact same speeds needed for a player to fall into either the jog, walk, run, or sprint categories. This is helpful to us because we can determine that our recipe does not need each zone distance because that speed is already accounted for within "jog_distance_m", "run_distance_m", "sprint_distance_m", and "walk_distance_m". However, this also opens the possibility to creating interactions between the predictors to again create a more condense model and not waste time looking at a predictor that is already within another one of our predictors. Lastly one should note that we only have positive correlations because every predictor we are looking at has to do with running, speed and efforts put in. Generally the more effort you put in the faster you go explaining most of the positive correlations we are witnessing here. There is no pair of predictors here where doing worse for one will be better for the other. The seed that should be planted into your mind is that if each zone is the speef for each style of running and each style of running summed up is the total distance that complex relationships are we dealing with within our data set?
+
+```{r, fig.height= 4.75, fig.width= 10}
+
+msocf22_train %>%
+  ggplot(aes(performance_duration_min, total_impact))+ #wish to see the relationship between performance minutes and outcome 
+  geom_point(alpha=0.1) +
+  stat_summary(fun=mean, colour="blue",geom = "line",size = 2)+
+  facet_wrap(~player_name,scales="free")+ # i'd like a plot per player so we put "~" player to get all the players 
+  labs(
+    title = "Performance Duration vs Total Impact Per Athlete"
+  )
+```
+
+This part of EDA showed us that Athlete 7 has lots of missing data so we should not really take them into account. This is why exploratory data analysis is helpful because we do not have to scrummage through all the data to identity missing data. The reason I wanted to see this plot is mainly because these two predictors had a surprisingly low correlation value of .23 when I expected them not to. This way we can see in detail what typically happens when each player plays for longer. A lot of the plots show their peak impact values roughly around 50 minutes. This to me means that when a player is put into a game they are able to perform best and at their maximum ability if they are not forced to play the entire 90 minute game. The same goes for practice duration. 
+```{r}
+
+msocf22 <-msocf22[-c(358),]
+msocf22
+```
+After the last plot we saw that Athlete 7 does not have many data points indicating they left the team or were injured, so their data is not necessailty useful to us. 
+
+```{r}
+#not my fave 
+ggplot(msocf22_train, aes(x=walk_distance_m, y=total_impact, fill=event_type)) +
+  geom_boxplot()
+# add another one here 
+```
+The relationship between This bar plot was mainly to see if players are using training as more of a time to heal and relax their bodies keeping it low impact or not. The means here are pretty similar which can be explained by the extended duration time during a practice versus game making the mean distance similar because of how much longer they are out on the field for training. However the range of the game boxplot makes sense because we would assume that players are covering more distance walking during a game than at practice when they have the chance to stand. I believe the range is also associated with defenders at ucsb because they are put in a position where they can stand/walk around more because our team is usually playing on the attacking end. 
+
+```{r}
+msocf22_train$total_impact %>%
+  table()
+#check out the distribution 
+```
+
+
+```{r}
+outcome_hist <- ggplot(msocf22_train,aes(x=total_impact)) + 
+  geom_histogram(color="pink",fill = "blue",binwidth = 3) #making bins more legible
+outcome_hist
+```
+This histogram of our outcome is uni-model and right-sckew. The distribution makes sense because total impact is dependent on how much players are on the field and how hard they choose to go. Our tracker's metrics make it normal to have a lower total_impact because anything too high would mean the player is going out of their comfort zone/ are not accumulated to the workout probably leaving them sore the next day. This is not what we want in order to prevent injury, that is why it is important for us to track things like this to make sure players have a steady and healthy increase of action during games and practices. 
+
+
+
+
+```{r}
+msocf22_recipe <- recipe(total_impact ~ performance_duration_min + walk_distance_m + jog_distance_m+ 
+                           run_distance_m + sprint_distance_m + sprint_efforts + hard_running_m +  work_rate_m_min + top_speed_m_s + intensity + zone_1_distance_m + zone_2_distance_m + zone_3_distance_m + zone_4_distance_m + zone_5_distance_m + zone_6_distance_m + zone_7_distance_m + zone_8_distance_m, data = msocf22_train) %>%
+  step_normalize(all_predictors())%>% 
+  step_dummy(all_nominal_predictors()) %>% 
+ step_pca(walk_distance_m,zone_1_distance_m,jog_distance_m,zone_2_distance_m,run_distance_m,zone_3_distance_m,zone_4_distance_m,sprint_distance_m,zone_7_distance_m,num_comp = 4) 
+msocf22_recipe %>% 
+  prep() %>% 
+  juice()
+#leaving loads and zone distances out, they are speed of each zone and load 2d and 3d are irrelevant to our data
+#step pca 
+
+```
+
+```{r}
+#fold data 
+msocf22_fold <- vfold_cv(msocf22_train,v=10)
+msocf22_fold
+```
+
+```{r}
+#linear regression model 
+msocf22_recipe_lr <- recipe(total_impact ~ performance_duration_min + walk_distance_m + jog_distance_m+ 
+                           run_distance_m + sprint_distance_m + sprint_efforts + hard_running_m + work_rate_m_min + work_rate_m_min + top_speed_m_s + intensity, data = msocf22_train) %>%
+  step_dummy(all_nominal_predictors())
+
+lm_model<- linear_reg() %>%
+  set_engine("lm")
+lm_wkflow <- workflow() %>%
+  add_model(lm_model) %>%
+  add_recipe(msocf22_recipe)
+
+lm_fit <- fit(lm_wkflow,msocf22_train)
+
+
+msocf22_train_res <- predict(lm_fit, new_data = msocf22_train %>% select(-total_impact))
+msocf22_train_res %>%
+  head()
+
+
+msocf22_train_res <- bind_cols(msocf22_train_res, new_data = msocf22_train %>% select(total_impact))
+msocf22_train_res %>%
+  head()
+
+msocf22_train_res %>% 
+  ggplot(aes(x=.pred,y=total_impact)) +
+  geom_point(alpha = 0.2)+
+  geom_abline(lty=2)+
+  theme_bw()+
+  coord_obs_pred()
+
+lm_train_rmse <- sqrt(mean((msocf22_train_res$total_impact - msocf22_train_res$.pred)^2))
+lm_train_rmse
+
+```
+
+
+
+```{r}
+#polynomial regression 
+poly_rec <-  msocf22_recipe %>%
+  step_poly(all_predictors(),degree=tune()) 
+  
+
+lm_spec <- linear_reg()%>%
+  set_mode("regression")%>%
+  set_engine("lm")
+
+poly_wkflow <- workflow() %>%
+  add_model(lm_spec)  %>%
+  add_recipe(poly_rec) 
+
+degree_grid_poly <- grid_regular(degree(range=c(1,4)),levels=4)
+                                     
+                                     
+tune_res_poly <- tune_grid(
+  poly_wkflow,
+  resamples = msocf22_fold,
+  grid = degree_grid_poly
+)
+autoplot(tune_res_poly)
+#select best 
+
+best_poly <- select_best(tune_res_poly, metric="rsq")
+
+poly_final <- finalize_workflow(poly_wkflow,best_poly)
+
+poly_final_fit <- fit(poly_final, data = msocf22_train)
+
+poly_train_rmse <- augment(poly_final_fit, new_data = msocf22_train) %>% 
+  rmse(truth = total_impact, estimate = .pred)
+poly_train_rmse
+
+augment(poly_final_fit, new_data = msocf22_test) %>% 
+  rmse(truth = total_impact, estimate = .pred)
+```
+
+```{r}
+#ridge regression 
+ridge_recipe <- 
+  recipe(formula = total_impact ~., data = msocf22_train) %>%
+  step_novel(all_nominal_predictors())%>%
+  step_dummy(all_nominal_predictors())%>%
+  step_zv(all_predictors())%>% 
+  step_normalize(all_predictors())
+
+ridge_spec <- 
+  linear_reg(penalty = tune(), mixture = 0)%>%
+  set_mode("regression")%>%
+  set_engine("glmnet")
+ridge_workflow <- workflow() %>% 
+  add_recipe(ridge_recipe)%>%
+  add_model(ridge_spec)
+penalty_grid <- grid_regular(penalty(range=c(-5,5)),levels=50)
+penalty_grid
+
+
+tune_res <- tune_grid(
+  ridge_workflow,
+  resamples = msocf22_fold,
+  grid = penalty_grid
+)
+tune_res
+
+autoplot(tune_res)
+#plot of the ridge 
+#working on finding the best penalty for our data 
+collect_metrics(tune_res)
+
+best_penalty_rsq <- select_best(tune_res, metric = "rsq")
+best_penalty_rsq
+best_penalty_rmse <- select_best(tune_res,metric="rmse")
+best_penalty_rmse
+ridge_final <- finalize_workflow(ridge_workflow,best_penalty)
+
+ridge_final_fit <- fit(ridge_final, data = msocf22_train)
+ridge_train_rmse <- augment(ridge_final_fit, new_data = msocf22_train) %>%
+  rmse(truth = total_impact, estimate = .pred)
+ridge_train_rmse
+augment(ridge_final_fit, new_data = msocf22_test) %>%
+  rmse(truth = total_impact, estimate = .pred)
+
+```
+
+```{r}
+lasso_recipe <- 
+  recipe(formula = total_impact~., data = msocf22_train) %>% 
+  step_novel(all_nominal_predictors())%>% 
+  step_dummy(all_nominal_predictors())%>%
+  step_zv(all_predictors())%>%
+  step_normalize(all_predictors())
+
+lasso_spec <- 
+  linear_reg(penalty = tune(),mixture = 1)%>% 
+  set_mode("regression")%>%
+  set_engine("glmnet")
+
+lasso_workflow <- workflow() %>%
+  add_recipe(lasso_recipe)%>%
+  add_model(lasso_spec)
+
+penalty_grid <- grid_regular(penalty(range = c(-2,2)),levels=20)
+
+tune_res <- tune_grid(
+  lasso_workflow,
+  resamples = msocf22_fold,
+  grid = penalty_grid
+)
+autoplot(tune_res)
+
+best_penalty <- select_best(tune_res, metric="rmse")
+
+lasso_final <- finalize_workflow(lasso_workflow,best_penalty)
+
+lasso_final_fit <- fit(lasso_final, data = msocf22_train)
+lasso_train_rmse <- augment(lasso_final_fit, new_data = msocf22_train) %>% 
+  rmse(truth = total_impact, estimate = .pred)
+lasso_train_rmse
+
+augment(lasso_final_fit, new_data = msocf22_test) %>% 
+  rmse(truth = total_impact, estimate = .pred)
+```
+
+```{r}
+#k-nearest neighbor 
+#install.packages("kknn")
+knn_model <- 
+  nearest_neighbor(
+    neighbors = tune(),
+    mode = "regression") %>%
+  set_engine("kknn")
+  
+knn_workflow <- workflow() %>% 
+  add_model(knn_model)%>%
+  add_recipe(msocf22_recipe)
+
+knn_params <- parameters(knn_model)
+
+knn_grid <- grid_regular(knn_params, levels = 5)
+
+knn_tune <- knn_workflow %>% 
+  tune_grid(
+    resamples = msocf22_fold,
+    grid = knn_grid)
+
+
+autoplot(knn_tune)
+
+```
+
+```{r}
+best_knn <- select_best(knn_tune, metric = "rmse")
+
+
+knn_final <- finalize_workflow(knn_workflow,best_knn)
+
+knn_final_fit <- fit(knn_final, data = msocf22_train)
+
+knn_train_rmse <- augment(knn_final_fit, new_data = msocf22_train) %>%
+  rmse(truth = total_impact, estimate = .pred)
+knn_train_rmse
+
+augment(knn_final_fit, new_data = msocf22_test) %>%
+  rmse(truth = total_impact, estimate = .pred)
+```
+
+```{r}
+#random forest
+#install.packages("rpart.plot")
+#install.packages("vip")
+#install.packages("janitor")
+#install.packages("randomForest")
+#install.packages("xgboost")
+library(rpart.plot)
+library(vip)
+library(janitor)
+library(randomForest)
+library(xgboost)
+
+rf_spec <- rand_forest(mtry=tune(),trees=tune(),min_n=tune())%>%
+  set_engine("ranger",importance="impurity")%>%
+  set_mode("regression")
+rf_wk <- workflow()%>%
+  add_recipe(msocf22_recipe)%>%
+  add_model(rf_spec)
+
+param_grid_rf <- grid_regular(mtry(range=c(1,12)),trees(range=c(500,1000)),min_n(range = c(1,10)),levels = 12)
+```
+
+```{r,eval = FALSE, message = FALSE}
+
+#fitting random forest
+#install.packages("ranger")
+
+tune_res_rf <- tune_grid(
+  rf_wk,
+  resamples = msocf22_fold,
+  grid = param_grid_rf,
+)
+
+autoplot(tune_res_rf)
+write_rds(tune_res_rf, file = "tune_rf.rds")
+```
+
+```{r,fig.width=14}
+rf_tree <- read_rds("tune_rf.rds")
+autoplot(rf_tree)
+```
+
+```{r}
+best_rf <- rf_tree %>%
+  collect_metrics()%>%
+  arrange(desc(mean))%>%
+  head(1)
+best_rf
+
+rf_tree_final <- finalize_workflow(rf_wk,best_rf)
+rf_tree_final_fit <- fit(rf_tree_final, data = msocf22_train)
+
+
+#install.packages("vip")
+library(vip)
+rf_tree_final_fit %>%
+  extract_fit_engine()%>%
+  vip()
+
+```
+
+```{r,eval= FALSE}
+#boosting 
+boost_spec <- boost_tree(trees=tune())%>%
+  set_engine("xgboost")%>%
+  set_mode("regression")
+boost_wf <- workflow()%>%
+  add_recipe(msocf22_recipe)%>%
+  add_model(boost_spec)
+
+param_grid_boost <- grid_regular(trees(range=c(10,600)),levels=12)
+param_grid_boost
+
+tune_res_boost <- tune_grid(
+  boost_wf,
+  resamples = msocf22_fold,
+  grid=param_grid_boost
+)
+
+autoplot(tune_res_boost)
+write_rds(tune_res_boost,file="tune_boost.rds")
+```
+
+```{r}
+boost_tree <- read_rds("tune_boost.rds")
+autoplot(boost_tree)
+```
+
+```{r}
+best_boost <- boost_tree %>%
+  collect_metrics()%>%
+  arrange(desc(mean))%>%
+  head(1)
+best_boost
+```
+```{r}
+#after fitting all these models we want to see which ones did the best based on their root square 
+library(tibble)
+best_tibble <- tibble(Models=c("Linear Regression", "Polynomial Rregression","Ridge","Lasso","KNN","Random Forest","Boosted Trees"), RMSE_bestvalues = c(lm_train_rmse,poly_train_rmse$.estimate,ridge_train_rmse$.estimate,lasso_train_rmse$.estimate,knn_train_rmse$.estimate,best_rf$mean,best_boost$mean))
+best_tibble
+```
+```{r}
+#Fitting the best model to the testing data 
+augment(lasso_final_fit, new_data = msocf22_test) %>% 
+  rmse(truth = total_impact, estimate = .pred)
+```
+
+
