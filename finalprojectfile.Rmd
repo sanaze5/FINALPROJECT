@@ -229,6 +229,8 @@ One of the most important things we learned in class was how we should always us
 
 We choose to test many models on this data including a linear regression, polynomial regression, ridge regression, lasso regression, k nearest neighbors, random forest, and boosted trees. First we should understand that we have a regression problem because even though our outcome is categorical it is presented in numerical values and there is way too high of a range in our total impact to do a classification problem. Our numerical values of total impact that contain categorical meanings are grouped into bins that we can deal with later. To start making our models we always want to use the set_engine() function with the specific model we are using and then from there we create a workflow that will take in our initial recipe and our new model and put them together, so that we can then fit the model. Before we fit them we tune all these models so that we yield the best results for the hyper parameters each one has. For most of our models you will notice we have the auto_plot() function to present us with a visual and then we will use the select_best() function to get the best parameters for our model. After we use select_best() for each model we will finalize a workflow with the ideal tuned values to get the best metric values. Another thing to note is that we will fit all of our models on the training data set folds so that the models can learn and then eventually once we have the best model we will fit it to our testing data. The main difference in each models' code will be the tuning hyper-parameters and these will be explained later under each model.
 
+#### Linear Regression
+
 ```{r,message=FALSE,warning=FALSE}
 #linear regression model 
 
@@ -262,6 +264,8 @@ lm_train_rmse
 ```
 
 The linear model is one of our most simple models that we learned in this class. The differences one can notice in this code is how we make a residual plot to see how our model did instead of using an auto_plot() visualization. The only other difference is that we got the root mean squared error manually instead of finalizing a new workflow because we are not tuning. Here we are taking the recipe we built with our training data and fitting that for a linear model. From there we calculated both the predicted outcome values and the actual outcome values so that we could create a visual with the residual plot. From what we see this model probably did not do the best because we want the residual plot to form a straight line with points randomly dispersed around it, but we have most of our values in the bottom left corner.
+
+#### Polynomial Regression
 
 ```{r,message=FALSE,warning=FALSE}
 #polynomial regression 
@@ -304,6 +308,8 @@ augment(poly_final_fit, new_data = msocf22_test) %>%
 ```
 
 Since this is the first time we are running a complex model similar to the other ones to come there are some new things in the code. First we now are tuning this model so that we can get an idea of what the ideal polynomial degree for our polynomial regression model is. After this step we use grid_regular() to evenly space out our hyper-parameters and we choose a range of degrees 1-4 because anything above that may get too complex. After the model was fit we used the function auto_plot() on our tuned model to see which degree did the best. From both of the visuals it is easy to see that the model has a higher rsq and lower rmse(root mean square error) at lower polynomial degrees. This is ideal because a high rsq shows that most of the variability caused in the outcome is explained by our predictors and a low rmse means we have a low error rate. We then get an actual value for the best rmse by selecting the best parameter values from our tuning and fitting the best version of our model to the folds ( as explained earlier). The last thing to note is that our testing rmse was almost double our training one.
+
+#### Ridge Regression
 
 ```{r,message=FALSE,warning=FALSE}
 #ridge regression model 
@@ -350,6 +356,8 @@ augment(ridge_final_fit, new_data = msocf22_test) %>%
 
 The same work goes into our code here as before, we tune our model and then proceed to find the best value for our new hyper-parameter that is called lambda. Setting our mixture parameter to 0 at the top of the code is how we specify the ridge model, so then all we do is tune for an ideal lambda value. Lambda controls the bias-variance trade off for our model. This is whether or not we choose to let go of some factors like complexity in a model in favor of lower bias or variance. The ridge model is unlike the lasso model in which it only shrinks predictors instead of making their value basically zero. The lasso model will shrink and eliminate predictors to a value of zero faster if they are irrelevant. As we can see in the visual the rmse becomes larger as lambda becomes larger which is not what we want, we prefer a smaller root mean square error. However, the r\^2(also rsq) value which we talked about earlier gets larger as lambda passes 1e+00 and then gets lower when it nears 1e+03. This means that the best value of lambda is going to be in between 1+e00 and 1e+03 lambda where both r\^2 and root mean square error hold ideal values(the graph changes every time we rerun it so these numbers are based off what I saw). Again we see our testing rmse is twice the size of our training rmse.
 
+#### Lasso Regression
+
 ```{r,message=FALSE,warning=FALSE}
 #lasso regression model 
 lasso_spec <- 
@@ -383,7 +391,9 @@ augment(lasso_final_fit, new_data = msocf22_test) %>%
   rmse(truth = total_impact, estimate = .pred)
 ```
 
-The difference between the ridge and lasso model is that the lasso model allows predictors to be shrunk down to the value 0 and the predictors that hit 0 first are the most irrelevant to us. The meaning of lambda remains the same as before. From our graphs here we see that similar to the ridge model our rmse value is most ideal before we approach the lambda value of 1+e00. Our r\^2 value which is the explained variability in outcome by predictors seems to do better as lambda increases but starts to decrease rapidly when rmse starts getting bigger. 
+The difference between the ridge and lasso model is that the lasso model allows predictors to be shrunk down to the value 0 and the predictors that hit 0 first are the most irrelevant to us. The meaning of lambda remains the same as before. From our graphs here we see that similar to the ridge model our rmse value is most ideal before we approach the lambda value of 1+e00. Our r\^2 value which is the explained variability in outcome by predictors seems to do better as lambda increases but starts to decrease rapidly when rmse starts getting bigger.
+
+#### K-nearest Neighbors
 
 ```{r,message=FALSE,warning=FALSE}
 #k-nearest neighbor 
@@ -431,6 +441,8 @@ augment(knn_final_fit, new_data = msocf22_test) %>%
 ```
 
 Similar to all the other models we are using the select_best() function here in order to eventually attain the best value in rmse for this model so that we can later compare with others. I did test this model to the testing data out of curiosity it seems like it is becoming a pattern than our testing rmse is twice the size of our training rmse. This could indicate overfitting.
+
+#### Random Forest
 
 ```{r,message=FALSE,warning=FALSE}
 #random forest
@@ -481,7 +493,7 @@ autoplot(rf_tree)
 
 I call the saved data here so we can check out the visuals they are pretty tight because there is so much to see. In this course we learned that the number of trees or node size is not as important as the number of randomly selected predictors when looking at metrics. We tuned for all three of these values and from the looks of it our ideal values of rmse and r\^2 are met when we have a lower amount of randomly selected predictors. The randomly selected predictors indicate which predictors and how many we would be splitting on as we go farther and farther down our tree model. I set the range for mtry from 1-9 because 9 is right below the amount of total predictors and in one of our examples we learned we need to do this in order to have a random forest model.
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 best_rf <- select_best(rf_tree, metric = "rmse")
 rf_tree_final <- finalize_workflow(rf_wk,best_rf)
 rf_tree_final_fit <- fit(rf_tree_final, data = msocf22_train)
@@ -500,7 +512,9 @@ rf_tree_final_fit %>%
 
 ```
 
-The nice thing about this model is we can use the variable importance function. The vip() this will tell us what predictors were deemed least important to most important. In this case our visual indicates case PC1 is very telling and top_speed_m_s is not.
+The nice thing about this model is we can use the variable importance function. The vip() this will tell us what predictors were deemed least important to most important. In this case our visual indicates case PC1 is very telling and top_speed_m\_s is not.
+
+#### Boosted Trees
 
 ```{r, warning=FALSE, message=FALSE}
 #boosting 
@@ -551,8 +565,9 @@ boost_final_rmse
 
 ```
 
-
 This last code chunk we are basically getting the best boosted tree rmse the same way we have been.
+
+### Fitting to Best Model
 
 ```{r,message=FALSE,warning=FALSE}
 #after fitting all these models we want to see which ones did the best based on their root square 
