@@ -1,7 +1,9 @@
 ---
-title: "exploratory"
-output: html_document:
-  cold_folding: hide
+title: "Men's Soccer Data Analysis"
+output: 
+  html_document: 
+    code_folding: hide
+    toc: true 
 ---
 
 # Final Project
@@ -10,15 +12,31 @@ output: html_document:
 
 ## Introduction
 
+The purpose of this project is to take raw data from the UCSB men's soccer team and find a model that will best predict a player's total impact exerted after an event.
+
+### What Technology gives us this data?
+
+    Many of UCSB’s athletics teams have shifted over to using tracking products from the brand spt so that they can track athletic performance. The UCSB men’s soccer team wears these trackers everyday to practice and during games in order to elevate performance and avoid injury after the data is interpreted. How it works is that each player shows up to practice with a sports bra on which they will then hold their tracker. They are handed their track before every event and then they turn it off when the practice or game is over. The tracker collects all personal metrics for each player and this can later be used to analyze changes in performance and health. 
+
+Informational video : <https://www.youtube.com/watch?v=daPCQhMG7BU&t=32s>
+
+### Why might these model be useful?
+
+Many of the predictors in this project are dependent on running speeds/distances and how that carries into total impact on the body. The main reason this model would be helpful to the teams' understanding is to see how players that do not run as much are doing in terms of total impact. If their total impact to their body is low but they are still playing well we can cross-reference this with the game day statistics to evaluate the trade offs between exerted body effort or placement/technique on the field.
+
+## Loading the Data
+
+This data was sent to me from a staff member from the UCSB men's soccer team because I work with them. Most of it was already cleaned and therefore made it easier to look through. The code book for this project is in my zipped files and shows the specifics for each predictor.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Loading Packages
+## Loading Packages
 
-We need to load the necessary packages in here so that we can access functions for our eda and model running later on.
+We need to load the necessary packages in here so that we can access functions for our exploratory data analysis and model running later on. Most of our work is centered around the tidyverse and ggplots so we will load these right away.
 
-```{r}
+```{r, message=FALSE,warning=FALSE}
 library(ggplot2)
 library(tidyverse)
 library(janitor)
@@ -40,9 +58,11 @@ tidymodels_prefer()
 
 ```
 
-### Data Cleaning
+## Data Cleaning
 
-```{r}
+Our data is clean for the most part however there are some unnecessary empty columns and missing data in rows that we have to deal with accordingly.
+
+```{r, message=FALSE,warning=FALSE}
 msocf22 <- read_csv("ucsb_msoc_fall2022.csv") %>% 
   clean_names() 
 
@@ -51,7 +71,7 @@ msocf22 %>%
 
 ```
 
-```{r}
+```{r, message=FALSE,warning=FALSE}
 msocf22 %>% 
   # filter(event_result != "No Result") %>% 
   group_by(event_date)
@@ -59,9 +79,9 @@ msocf22 %>%
 
 ```
 
-The clean_names() function here is very useful because it puts every column title in snake case meaning each word is connected with an underscore and everything is lowercase. This will make it much easier later on when we have to call different columns in r. The data had broken every game into three different events, first half, second half, and combined game, to avoid having all three of these we filtered it so that only the full games would be available for data analysis avoiding errors that would be caused to replicates.
+The first step here is opening the data set by using the function read_csv() and then using the function clean_names(). The clean_names() function here is very useful because it puts every column title in snake case meaning each word is connected with an underscore and everything is lowercase. This will make it much easier later on when we have to call different columns in r. The next issue after this was that the data had broken every game into three different events, first half, second half, and combined game. To avoid having all three of these we filtered it so that only the full games would be available for data analysis avoiding errors that could be caused by replicates.
 
-```{r}
+```{r,message=FALSE,warning=FALSE}
 msocf22 <- msocf22%>%
   mutate(total_impact = impact_light + impact_medium+impact_heavy)
 msocf22
@@ -74,20 +94,20 @@ msocf22
 
 The outcome variable total_impact did not come in the given data, so we had to mutate a column in for it into the data set. The total_impact is the sum of impact_light, impact_medium and impact_heavy.
 
-```{r}
+```{r,message=FALSE,warning=FALSE}
 msocf22 %>% 
   filter(segment_name == "*")
 # we want to make sure we don't account for half time just the whole game 
 msocf22 <- msocf22 %>%
-  select(-c(starts_with("hr")))
+  select(-c(starts_with("hr"))) # these are the empty columns 
 msocf22 <- msocf22 %>% 
   select (-c(impact_light,impact_medium,impact_heavy,event_tags,total_distance_m)) # each impact factors into total impact so the same way we had to factor age of the abalone data we must do the same here, event_tags was just an unnecessary row we had 
-msocf22 <- msocf22 %>%
-  select(-c(total_distance_m))
-msocf22
+#msocf22 <- msocf22 %>%
+  #select(-c(total_distance_m))
+#msocf22
 ```
 
-Again to deal with the replicate rows that account for each games 1st half, 2nd half and full game we want to filter our data to only include events with segment name "*" because this column includes "1st Half" and "2nd Half". By getting rid of the first and second half we successfully keep the full game data points in our data set. Next we want to take out all the columns starting with "hr" because they are all empty and this way our data will look more concise(same with "event_tags". Lastly we must take out rows "impact_light", "impact_heavy", and "impact_medium" because the sum of these three columns adds up to our outcome. We do not want this in our data set because it would make the data colinear and ruin the predictions we are trying to get by fitting the models later. #IS CONLINEAR CORRECRT The total_distance_m also has to be taken out because it is just the sum of walk_distance_m, jog_distance_m, run_distance_m, and sprint_distance_m. 
+Again to deal with the replicate rows that account for each games' 1st half, 2nd half and full game we want to filter our data to only include events with segment name "*" because this gets rid of the the words "1st Half" and "2nd Half"(games are accounted for by "*\*"). By getting rid of the first and second half we successfully keep the full game data points in our data set. Next we want to take out all the columns starting with "hr" because they are all empty and this way our data will look more concise(same with "event_tags"). Lastly we must take out rows "impact_light", "impact_heavy", and "impact_medium" because the sum of these three columns adds up to our outcome. We do not want this in our data set because it would make the data collinear and ruin the predictions we are trying to get by fitting the models later. The total_distance_m also has to be taken out because it is just the sum of walk_distance_m, jog_distance_m, run_distance_m, and sprint_distance_m and we would rather see the impact of each running speed instead of just the total on our outcome.
 
 ```{r}
 msocf22 #one last check up on the data 
@@ -107,9 +127,13 @@ dim(msocf22_train)/nrow(msocf22) #checking if the proportions of the split data 
 dim(msocf22_test)/nrow(msocf22)
 ```
 
-We want to split our data into a testing and training data set stratifying on the outcome. We stratify on outcome because we would like to maintain the distribution of the outcome for all the resamples. In the first line of this code block we set.seed() so that the same random variables are used every time we rerun the code. 
+We want to split our data into a testing and training data set stratifying on the outcome variable.This is because our outcomes' distribution was heavily skewed in the exploratory data analysis. We stratify on outcome because we would like to maintain the distribution of the outcome for all the resampling that will take place later with our cross fold validation. In the first line of code in this block we used the set.seed() function so that the same random variables are made every time we rerun the code. We also checked the ratios of the testing and training data set to see if they matched the proportions we split them to.
 
-```{r,fig.height= 4.25, fig.width= 20} 
+## Exploratory Data Analysis
+
+We choose to do all the exploratory data analysis( eda ) on the testing data because that is what we are fitting all the models to later. We would like to see how this data is acting so that we can better understand how to deal with it before and after we analysis the models.
+
+```{r,fig.height= 4.25, fig.width= 20}
 
 library(corrplot)
 
@@ -118,12 +142,13 @@ msocf22_train %>%
   cor() %>% 
   corrplot(type = "lower")
 ```
-Here we construct a huge correlation plot with all the possible relevant predictors so far to see if anything stands out and if we should be cautious of that. The first thing that should catch your eyes is that "jog_distance_m" and "zone_2_distance_m" have a perfect positive correlation and so does "walk_distance_m" and "zone_distance_1". This can be explained by the fact that these zone speeds are the exact same speeds needed for a player to fall into either the jog, walk, run, or sprint categories. This is helpful to us because we can determine that our recipe does not need each zone distance because that speed is already accounted for within "jog_distance_m", "run_distance_m", "sprint_distance_m", and "walk_distance_m". However, this also opens the possibility to creating interactions between the predictors to again create a more condense model and not waste time looking at a predictor that is already within another one of our predictors. Lastly one should note that we only have positive correlations because every predictor we are looking at has to do with running, speed and efforts put in. Generally the more effort you put in the faster you go explaining most of the positive correlations we are witnessing here. There is no pair of predictors here where doing worse for one will be better for the other. The seed that should be planted into your mind is that if each zone is the speef for each style of running and each style of running summed up is the total distance that complex relationships are we dealing with within our data set?
+
+Here we construct a correlation plot with all the possible relevant predictors so far, to see if anything stands out and if we should be cautious of that. The first thing that should catch your eyes is that "jog_distance_m" and "zone_2\_distance_m" have a perfect positive correlation and so does "walk_distance_m" and "zone_distance_1". This can be explained by the fact that these zone speeds are the exact same speeds needed for a player to fall into either the jog, walk, run, or sprint categories. This is helpful to us because we can determine that our recipe does not need each zone distance because that speed is already accounted for within "jog_distance_m", "run_distance_m", "sprint_distance_m", and "walk_distance_m". However, this also opens the possibility of creating interactions between the predictors to again create a more condense model and not waste time looking at a predictor that is already within another one of our predictors. Lastly one should note that we only have positive correlations because every predictor we are looking at has to do with running, speed and efforts put in. Generally the more effort you put in the faster you go explaining most of the positive correlations we are witnessing here. There is no pair of predictors here where doing worse for one means doing better for the other. To combat the perfect correlation values we talked about before we learned in lecture that we can use the principal component analysis (a form of dimension reduction) and take the relationships we deem as "interesting" and condense them into less predictors. This way we save all the data and simplify the recipe we will create later.
 
 ```{r, fig.height= 4.75, fig.width= 10}
 
 msocf22_train %>%
-  ggplot(aes(performance_duration_min, total_impact))+ #wish to see the relationship between performance minutes and outcome 
+  ggplot(aes(performance_duration_min, total_impact))+ #wish to see the relationship between performance minutes and outcome based on athlete
   geom_point(alpha=0.1) +
   stat_summary(fun=mean, colour="blue",geom = "line",size = 2)+
   facet_wrap(~player_name,scales="free")+ # i'd like a plot per player so we put "~" player to get all the players 
@@ -132,21 +157,30 @@ msocf22_train %>%
   )
 ```
 
-This part of EDA showed us that Athlete 7 has lots of missing data so we should not really take them into account. This is why exploratory data analysis is helpful because we do not have to scrummage through all the data to identity missing data. The reason I wanted to see this plot is mainly because these two predictors had a surprisingly low correlation value of .23 when I expected them not to. This way we can see in detail what typically happens when each player plays for longer. A lot of the plots show their peak impact values roughly around 50 minutes. This to me means that when a player is put into a game they are able to perform best and at their maximum ability if they are not forced to play the entire 90 minute game. The same goes for practice duration. 
-```{r}
+Here we are creating a visual of each athletes' minutes played versus total_impact. These visuals are easier to create for the regression problems because we can take a qualitative column (athletes) and simply plot multiple relationships on the same visual. This part of EDA showed us that Athlete 7 has lots of missing data so we should not really take them into account. This is why exploratory data analysis is helpful because we do not have to scrummage through all the data to identity missing data. The reason we wanted to see this plot is mainly because these two predictors had a surprisingly low correlation value of .23 when we expected them not to. This way we can see in detail what typically happens when each player plays for longer. A lot of the plots show that each athletes peak impact value is roughly around 50 minutes. This to me means that when a player is put into a game they are able to perform best and at their maximum ability if they are not forced to play the entire 90 minute game. The same goes for practice duration.
 
+```{r,message=FALSE,warning=FALSE}
 msocf22 <-msocf22[-c(358),]
 msocf22
 ```
-After the last plot we saw that Athlete 7 does not have many data points indicating they left the team or were injured, so their data is not necessailty useful to us. 
 
-```{r}
-#not my fave 
+After the last plot we saw that Athlete 7 does not have many data points indicating they left the team or were injured, so their data is not necessarily useful to us.
+
+```{r,message=FALSE,warning=FALSE}
 ggplot(msocf22_train, aes(x=walk_distance_m, y=total_impact, fill=event_type)) +
-  geom_boxplot()
-# add another one here 
+  geom_boxplot() # here we construct a normal boxplot with ggplot
+
 ```
-The relationship between This bar plot was mainly to see if players are using training as more of a time to heal and relax their bodies keeping it low impact or not. The means here are pretty similar which can be explained by the extended duration time during a practice versus game making the mean distance similar because of how much longer they are out on the field for training. However the range of the game boxplot makes sense because we would assume that players are covering more distance walking during a game than at practice when they have the chance to stand. I believe the range is also associated with defenders at ucsb because they are put in a position where they can stand/walk around more because our team is usually playing on the attacking end. 
+
+The point of creating this bar plot was mainly to see if players are using training as more of a time to heal and relax their bodies keeping it low impact or not. The plots have similar mean values because a training session is much longer than a game meaning even if they are not doing as much they have time to walk around as much as they would in a game. However one can see that the walk distance for games is much lower than ones from training because in training some players who are subbed off can walk around much more than they would in a game where they are sitting with their tracker on. The outliers we see on the game box plot could be the defenders on our team because they do have time to walk around more when we are on the attack side and they still have high impact values because when they do play they are exerting a lot of physical energy.
+
+```{r,message=FALSE,warning=FALSE}
+ggplot(msocf22_train, aes(x=intensity, y=total_impact, fill=event_type)) +
+  geom_boxplot() # here we construct a normal boxplot with ggplot
+
+```
+
+This plot I created after running the random forest model because through one of our visuals it showed us that intensity was one of the most relevant predictors on the outcome. It is smart to check out the relationship between them to see if anything stands out. It seems that intensity is much higher on game days which makes a lot of sense because most players are running and pushing themselves the whole 90 minutes. The larger range on the game box plot could also be explained by how much playing time a player is getting and how much intensity they are putting in affecting the total impact and the distribution of low to high values we see. The training box plot also makes sense because there shouldn't be a huge range when everyone is exerting the same amount of effort for practice when the coach is allowed to stop them and talk to them etc. The outliers can be explained by how sometimes players who played the entire game the day before are able to sit out for training to relax their bodies meaning other players are exerting much more effort then them making them have a higher total impact throughout training.
 
 ```{r}
 msocf22_train$total_impact %>%
@@ -154,79 +188,85 @@ msocf22_train$total_impact %>%
 #check out the distribution 
 ```
 
+Before we look at the distribution of the outcome we would like to see each number to get an idea of what to expect.
 
 ```{r}
+#histogram of our outcome variable
 outcome_hist <- ggplot(msocf22_train,aes(x=total_impact)) + 
   geom_histogram(color="pink",fill = "blue",binwidth = 3) #making bins more legible
 outcome_hist
 ```
-This histogram of our outcome is uni-model and right-sckew. The distribution makes sense because total impact is dependent on how much players are on the field and how hard they choose to go. Our tracker's metrics make it normal to have a lower total_impact because anything too high would mean the player is going out of their comfort zone/ are not accumulated to the workout probably leaving them sore the next day. This is not what we want in order to prevent injury, that is why it is important for us to track things like this to make sure players have a steady and healthy increase of action during games and practices. 
 
+This histogram of our outcome is uni-model and right-skew. The distribution makes sense because total impact is dependent on how much players are on the field and how hard they choose to go. Our tracker's metrics make it normal to have a lower total_impact because anything too high would mean the player is going out of their comfort zone/ are not accumulated to the workout probably leaving them sore the next day. This is not what we want in order to prevent injury, that is why it is important for us to track things like this to make sure players have a steady and healthy increase of action during games and practices. The last thing we should note is that there is a positive skew on our distribution here.
 
+## Model Building
 
-
-```{r}
+```{r,message=FALSE,warning=FALSE}
 msocf22_recipe <- recipe(total_impact ~ performance_duration_min + walk_distance_m + jog_distance_m+ 
                            run_distance_m + sprint_distance_m + sprint_efforts + hard_running_m +  work_rate_m_min + top_speed_m_s + intensity + zone_1_distance_m + zone_2_distance_m + zone_3_distance_m + zone_4_distance_m + zone_5_distance_m + zone_6_distance_m + zone_7_distance_m + zone_8_distance_m, data = msocf22_train) %>%
-  step_normalize(all_predictors())%>% 
+  step_normalize(all_predictors())%>% #normalize the model, same as step center and step scale
   step_dummy(all_nominal_predictors()) %>% 
- step_pca(walk_distance_m,zone_1_distance_m,jog_distance_m,zone_2_distance_m,run_distance_m,zone_3_distance_m,zone_4_distance_m,sprint_distance_m,zone_7_distance_m,num_comp = 4) 
+ step_pca(walk_distance_m,zone_1_distance_m,jog_distance_m,zone_2_distance_m,run_distance_m,zone_3_distance_m,zone_4_distance_m,sprint_distance_m,zone_7_distance_m,num_comp = 4) #due to the high correlations we use pca with 4 components to simply the recipe but keep all data in tact 
 msocf22_recipe %>% 
   prep() %>% 
-  juice()
+  juice() # gives use a preview tibble 
+
 #leaving loads and zone distances out, they are speed of each zone and load 2d and 3d are irrelevant to our data
-#step pca 
 
 ```
 
-```{r}
-#fold data 
-msocf22_fold <- vfold_cv(msocf22_train,v=10)
+Our recipe is a very important part of building our models. Now that we saw what data to get rid of and alter in our data cleaning and eda we proceed by creating the backbone of our models. Initially in our recipe we choose to get rid of zone distance predictors for all 8 zones because they were just a reiteration of the speeds contained in either walking, running, sprinting, or jogging distances. However, in order to yield better results and not get rid of predictors we problem solved by using the principal component analysis method. In this method we were able to combine,walk_distance_m and zone_1\_distance_m,jog_distance_m and zone_2\_distance_m, run_distance_m and zone_3\_distance_m as well as zone_4\_distance_m, and finally sprint_distance_m and zone_7\_distance_m. To combat all the pairs and the one trio we used the parameter num_comp in the function step_pca() and set it as four because we went from 9 predictors to basically four. We choose to have 4 components instead of one because we would like to see how each type of movement: running, jogging, walking, and sprinting affect the outcome. If we wanted one predictor we would have kept total_distance_m in our data set. Also our whole project is based on different types of running speeds and how they impact the body, so it would be a poor decision to not separate the speeds into different components. One thing to note about the code is that we used the function step_normalize() which is the same as step_center() and step_scale() to normalize our data. Lastly because we know the data set and we know predictors like the load zones are irrelevant to the outcome factor we may simply remove them.
+
+```{r,message=FALSE,warning=FALSE}
+#k-fold cross validation
+msocf22_fold <- vfold_cv(msocf22_train,v=10) # you can use 5-10 folds, but because I do not have a large amount of data I choose to re sample with more folds because the running time would not be drastic
 msocf22_fold
 ```
 
-```{r}
+One of the most important things we learned in class was how we should always use some form of cross validation to re sample our data. We also learned that for most machine learning problems in this course it is safe to use 5 or 10 folds when performing cross fold validation. With k fold cross validation we avoid using the whole data set like in other methods, instead we have k-1 folds that we fit with our training data to learn the data and then finally we can apply the learned models to our 1 fold of untouched testing data. In doing so we can compare how well our data interprets the training versus testing data and see if it is able to make the distinctions we would like it to.
+
+### General Understanding
+
+We choose to test many models on this data including a linear regression, polynomial regression, ridge regression, lasso regression, k nearest neighbors, random forest, and boosted trees. First we should understand that we have a regression problem because even though our outcome is categorical it is presented in numerical values and there is way too high of a range in our total impact to do a classification problem. Our numerical values of total impact that contain categorical meanings are grouped into bins that we can deal with later. To start making our models we always want to use the set_engine() function with the specific model we are using and then from there we create a workflow that will take in our initial recipe and our new model and put them together, so that we can then fit the model. Before we fit them we tune all these models so that we yield the best results for the hyper parameters each one has. For most of our models you will notice we have the auto_plot() function to present us with a visual and then we will use the select_best() function to get the best parameters for our model. After we use select_best() for each model we will finalize a workflow with the ideal tuned values to get the best metric values. Another thing to note is that we will fit all of our models on the training data set folds so that the models can learn and then eventually once we have the best model we will fit it to our testing data. The main difference in each models' code will be the tuning hyper-parameters and these will be explained later under each model.
+
+```{r,message=FALSE,warning=FALSE}
 #linear regression model 
-msocf22_recipe_lr <- recipe(total_impact ~ performance_duration_min + walk_distance_m + jog_distance_m+ 
-                           run_distance_m + sprint_distance_m + sprint_efforts + hard_running_m + work_rate_m_min + work_rate_m_min + top_speed_m_s + intensity, data = msocf22_train) %>%
-  step_dummy(all_nominal_predictors())
 
 lm_model<- linear_reg() %>%
   set_engine("lm")
 lm_wkflow <- workflow() %>%
   add_model(lm_model) %>%
-  add_recipe(msocf22_recipe)
+  add_recipe(msocf22_recipe) #fitting our recipe with the training data to our model 
 
-lm_fit <- fit(lm_wkflow,msocf22_train)
-
+lm_fit <- fit(lm_wkflow,msocf22_train)# fitting our model to the training data 
 
 msocf22_train_res <- predict(lm_fit, new_data = msocf22_train %>% select(-total_impact))
 msocf22_train_res %>%
-  head()
-
+  head() 
 
 msocf22_train_res <- bind_cols(msocf22_train_res, new_data = msocf22_train %>% select(total_impact))
 msocf22_train_res %>%
   head()
-
+# lines 200 - 206 are us getting a prediction versus the actual value from our model 
 msocf22_train_res %>% 
   ggplot(aes(x=.pred,y=total_impact)) +
   geom_point(alpha = 0.2)+
   geom_abline(lty=2)+
   theme_bw()+
-  coord_obs_pred()
+  coord_obs_pred() # creating a visual residual graph 
 
 lm_train_rmse <- sqrt(mean((msocf22_train_res$total_impact - msocf22_train_res$.pred)^2))
 lm_train_rmse
+# creating a variable for the training rmse to eventually pick the best one when put in a tibble 
 
 ```
 
+The linear model is one of our most simple models that we learned in this class. The differences one can notice in this code is how we make a residual plot to see how our model did instead of using an auto_plot() visualization. The only other difference is that we got the root mean squared error manually instead of finalizing a new workflow because we are not tuning. Here we are taking the recipe we built with our training data and fitting that for a linear model. From there we calculated both the predicted outcome values and the actual outcome values so that we could create a visual with the residual plot. From what we see this model probably did not do the best because we want the residual plot to form a straight line with points randomly dispersed around it, but we have most of our values in the bottom left corner.
 
-
-```{r}
+```{r,message=FALSE,warning=FALSE}
 #polynomial regression 
 poly_rec <-  msocf22_recipe %>%
-  step_poly(all_predictors(),degree=tune()) 
+  step_poly(all_predictors(),degree=tune()) # we will choose to tune in most model to yield the best results, this is also a function for the polynomial model 
   
 
 lm_spec <- linear_reg()%>%
@@ -235,20 +275,21 @@ lm_spec <- linear_reg()%>%
 
 poly_wkflow <- workflow() %>%
   add_model(lm_spec)  %>%
-  add_recipe(poly_rec) 
+  add_recipe(poly_rec) #taking the linear model and transforming for our polynomial regression
 
-degree_grid_poly <- grid_regular(degree(range=c(1,4)),levels=4)
+degree_grid_poly <- grid_regular(degree(range=c(1,4)),levels=4) # we use the number four because we'd like a degree that is higher than 1 but not so large 
                                      
                                      
-tune_res_poly <- tune_grid(
+tune_res_poly <- tune_grid( 
   poly_wkflow,
   resamples = msocf22_fold,
   grid = degree_grid_poly
-)
+)# like every other model this is the far where we tune and find the best degree for our model with the polynomial regression model 
 autoplot(tune_res_poly)
 #select best 
 
-best_poly <- select_best(tune_res_poly, metric="rsq")
+best_poly <- select_best(tune_res_poly, metric="rmse")
+best_poly
 
 poly_final <- finalize_workflow(poly_wkflow,best_poly)
 
@@ -262,23 +303,19 @@ augment(poly_final_fit, new_data = msocf22_test) %>%
   rmse(truth = total_impact, estimate = .pred)
 ```
 
-```{r}
-#ridge regression 
-ridge_recipe <- 
-  recipe(formula = total_impact ~., data = msocf22_train) %>%
-  step_novel(all_nominal_predictors())%>%
-  step_dummy(all_nominal_predictors())%>%
-  step_zv(all_predictors())%>% 
-  step_normalize(all_predictors())
+Since this is the first time we are running a complex model similar to the other ones to come there are some new things in the code. First we now are tuning this model so that we can get an idea of what the ideal polynomial degree for our polynomial regression model is. After this step we use grid_regular() to evenly space out our hyper-parameters and we choose a range of degrees 1-4 because anything above that may get too complex. After the model was fit we used the function auto_plot() on our tuned model to see which degree did the best. From both of the visuals it is easy to see that the model has a higher rsq and lower rmse(root mean square error) at lower polynomial degrees. This is ideal because a high rsq shows that most of the variability caused in the outcome is explained by our predictors and a low rmse means we have a low error rate. We then get an actual value for the best rmse by selecting the best parameter values from our tuning and fitting the best version of our model to the folds ( as explained earlier). The last thing to note is that our training rmse was larger than our testing.
+
+```{r,message=FALSE,warning=FALSE}
+#ridge regression model 
 
 ridge_spec <- 
-  linear_reg(penalty = tune(), mixture = 0)%>%
+  linear_reg(penalty = tune(), mixture = 0)%>% # the mixture of 0 specifies a ridge regression 
   set_mode("regression")%>%
-  set_engine("glmnet")
+  set_engine("glmnet") #engine specific to the ridge model 
 ridge_workflow <- workflow() %>% 
-  add_recipe(ridge_recipe)%>%
+  add_recipe(msocf22_recipe)%>%
   add_model(ridge_spec)
-penalty_grid <- grid_regular(penalty(range=c(-5,5)),levels=50)
+penalty_grid <- grid_regular(penalty(range=c(-5,5)),levels=50) #these are the values we used in our previous examples of this problem
 penalty_grid
 
 
@@ -287,10 +324,10 @@ tune_res <- tune_grid(
   resamples = msocf22_fold,
   grid = penalty_grid
 )
-tune_res
+tune_res #we want to tune our model and then include our cross validation folds so that we can resample 
 
 autoplot(tune_res)
-#plot of the ridge 
+#plot lambda versus rsq and rmse 
 #working on finding the best penalty for our data 
 collect_metrics(tune_res)
 
@@ -298,35 +335,33 @@ best_penalty_rsq <- select_best(tune_res, metric = "rsq")
 best_penalty_rsq
 best_penalty_rmse <- select_best(tune_res,metric="rmse")
 best_penalty_rmse
-ridge_final <- finalize_workflow(ridge_workflow,best_penalty)
+ridge_final <- finalize_workflow(ridge_workflow,best_penalty_rsq)
 
 ridge_final_fit <- fit(ridge_final, data = msocf22_train)
 ridge_train_rmse <- augment(ridge_final_fit, new_data = msocf22_train) %>%
   rmse(truth = total_impact, estimate = .pred)
 ridge_train_rmse
+
+#here I am seeing how the model does with the testing data just to see how it did
 augment(ridge_final_fit, new_data = msocf22_test) %>%
   rmse(truth = total_impact, estimate = .pred)
 
 ```
 
-```{r}
-lasso_recipe <- 
-  recipe(formula = total_impact~., data = msocf22_train) %>% 
-  step_novel(all_nominal_predictors())%>% 
-  step_dummy(all_nominal_predictors())%>%
-  step_zv(all_predictors())%>%
-  step_normalize(all_predictors())
+The same work goes into our code here as before, we tune our model and then proceed to find the best value for our new hyper-parameter that is called lambda. Setting our mixture parameter to 0 at the top of the code is how we specify the ridge model, so then all we do is tune for an ideal lambda value. Lambda controls the bias-variance trade off for our model. This is whether or not we choose to let go of some factors like complexity in a model in favor of lower bias or variance. The ridge model is unlike the lasso model in which it only shrinks predictors instead of making their value basically zero. The lasso model will shrink and eliminate predictors to a value of zero faster if they are irrelevant. As we can see in the visual the rmse becomes larger as lambda becomes larger which is not what we want, we prefer a smaller root mean square error. However, the r\^2 value which we talked about earlier gets larger as lambda passes 1e+00 and then gets lower when it nears 1e+03. This means that the best value of lambda is going to be in between 1+e00 and 1e+03 lambda where both r\^2 and root mean square error hold ideal values. The new thing to note is that our rmse is higher on the training testing set than our testing set.
 
+```{r,message=FALSE,warning=FALSE}
+#lasso regression model 
 lasso_spec <- 
-  linear_reg(penalty = tune(),mixture = 1)%>% 
+  linear_reg(penalty = tune(),mixture = 1)%>%  # the mixture of 1 specifies a lasso regression
   set_mode("regression")%>%
   set_engine("glmnet")
 
 lasso_workflow <- workflow() %>%
-  add_recipe(lasso_recipe)%>%
+  add_recipe(msocf22_recipe)%>%
   add_model(lasso_spec)
 
-penalty_grid <- grid_regular(penalty(range = c(-2,2)),levels=20)
+penalty_grid <- grid_regular(penalty(range = c(-2,2)),levels=20) # these were also the values we learned to use on previous problems 
 
 tune_res <- tune_grid(
   lasso_workflow,
@@ -348,14 +383,16 @@ augment(lasso_final_fit, new_data = msocf22_test) %>%
   rmse(truth = total_impact, estimate = .pred)
 ```
 
-```{r}
+The difference between the ridge and lasso model is that the lasso model allows predictors to be shrunk down to the value 0 and the predictors that hit 0 first are the most irrelevant to us. The meaning of lambda remains the same as before. From our graphs here we see that similar to the ridge model our rmse value is most ideal before we approach the lambda value of 1+e00. Our r\^2 value which is the explained variability in outcome by predictors seems to do better as lambda increases but starts to decrease rapidly around 1e+00 lambda.
+
+```{r,message=FALSE,warning=FALSE}
 #k-nearest neighbor 
 #install.packages("kknn")
 knn_model <- 
   nearest_neighbor(
     neighbors = tune(),
     mode = "regression") %>%
-  set_engine("kknn")
+  set_engine("kknn")# engine specific to this model 
   
 knn_workflow <- workflow() %>% 
   add_model(knn_model)%>%
@@ -368,14 +405,16 @@ knn_grid <- grid_regular(knn_params, levels = 5)
 knn_tune <- knn_workflow %>% 
   tune_grid(
     resamples = msocf22_fold,
-    grid = knn_grid)
+    grid = knn_grid)#tuning this model as well 
 
 
 autoplot(knn_tune)
 
 ```
 
-```{r}
+In the k-nearest model we are tuning to find the ideal value of k so we know how many groups we would like to visually group our data in. This way with new data points we would have grouping boundaries and we would know what group the new data points would belong to. From the looks of it both r\^2 and rmse values are the most ideal with the highest value of k past 12 (12 or more grouping boundaries).
+
+```{r,message=FALSE,warning=FALSE}
 best_knn <- select_best(knn_tune, metric = "rmse")
 
 
@@ -391,7 +430,9 @@ augment(knn_final_fit, new_data = msocf22_test) %>%
   rmse(truth = total_impact, estimate = .pred)
 ```
 
-```{r}
+Similar to all the other models we are using the select_best() function here in order to eventually attain the best value in rmse for this model so that we can later compare with others. I did test this model to the testing data out of curiosity and finally our training data set has a slightly lower rmse value than our testing data set. This is good because we want the values to be close.
+
+```{r,message=FALSE,warning=FALSE}
 #random forest
 #install.packages("rpart.plot")
 #install.packages("vip")
@@ -411,8 +452,10 @@ rf_wk <- workflow()%>%
   add_recipe(msocf22_recipe)%>%
   add_model(rf_spec)
 
-param_grid_rf <- grid_regular(mtry(range=c(1,12)),trees(range=c(500,1000)),min_n(range = c(1,10)),levels = 12)
+param_grid_rf <- grid_regular(mtry(range=c(1,9)),trees(range=c(500,1000)),min_n(range = c(1,10)),levels = 10)
 ```
+
+Now we are moving on to tree models which are known to work well in general. We split up most of the code here with the random forest model because it will have a long running time and we want to save the later parts in a file where we can easily rerun them. In this part of the code we are tuning and fitting our model just like we have in earlier examples. We are tuning three parameters here, trees is the best number of trees, mtry is the amount of predictors we randomly sample from every time we choose to split our tree, and finally min_n is how many data points must be in a trees node before we can split the tree again. In a random forest we see that we have several different trees that are in a uncorrelated "forest" and then we make a prediction off of the average of all of these. It differs from boosting where trees are made one after another.
 
 ```{r,eval = FALSE, message = FALSE}
 
@@ -429,41 +472,51 @@ autoplot(tune_res_rf)
 write_rds(tune_res_rf, file = "tune_rf.rds")
 ```
 
+This is where we need to tune and plot the model which takes a very long running time. That is why we save the results of this in a separate file that we can easily call later.
+
 ```{r,fig.width=14}
 rf_tree <- read_rds("tune_rf.rds")
 autoplot(rf_tree)
 ```
 
-```{r}
-best_rf <- rf_tree %>%
-  collect_metrics()%>%
-  arrange(desc(mean))%>%
-  head(1)
-best_rf
+I call the saved data here so we can check out the visuals they are pretty tight because there is so much to see. In this course we learned that the number of trees or node size is not as important as the number of randomly selected predictors when looking at metrics. We tuned for all three of these values and from the looks of it our ideal values of rmse and r\^2 are met when we have a lower amount of randomly selected predictors. The randomly selected predictors indicate which predictors and how many we would be splitting on as we go farther and farther down our tree model. I set the range for mtry from 1-9 because 9 is right below the amount of total predictors and in one of our examples we learned we need to do this in order to have a random forest model.
 
+```{r}
+best_rf <- select_best(rf_tree, metric = "rmse")
 rf_tree_final <- finalize_workflow(rf_wk,best_rf)
 rf_tree_final_fit <- fit(rf_tree_final, data = msocf22_train)
+rf_tree_final_fit
+
+rf_final_rmse <- augment(rf_tree_final_fit, new_data = msocf22_train) %>%
+  rmse(truth = total_impact, estimate = .pred)
+rf_final_rmse
 
 
 #install.packages("vip")
-library(vip)
+library(vip) # variable importance function specific to this model 
 rf_tree_final_fit %>%
   extract_fit_engine()%>%
   vip()
 
 ```
 
-```{r,eval= FALSE}
+The nice thing about this model is we can use the variable importance function. The vip() this will tell us what predictors were deemed least important to most important. In this case our visual indicates case work_rate_m\_min is a telling predictor and PC2 is not.
+
+```{r, eval=FALSE, message=FALSE}
 #boosting 
 boost_spec <- boost_tree(trees=tune())%>%
-  set_engine("xgboost")%>%
-  set_mode("regression")
+  set_engine("xgboost")%>% # engine for boosting
+  set_mode("regression") #specify our regression project
 boost_wf <- workflow()%>%
   add_recipe(msocf22_recipe)%>%
   add_model(boost_spec)
 
-param_grid_boost <- grid_regular(trees(range=c(10,600)),levels=12)
+param_grid_boost <- grid_regular(trees(range=c(10,600)),levels=12) # levels could be around your amount of parameters 
 param_grid_boost
+
+```
+
+```{r,eval= FALSE}
 
 tune_res_boost <- tune_grid(
   boost_wf,
@@ -472,31 +525,77 @@ tune_res_boost <- tune_grid(
 )
 
 autoplot(tune_res_boost)
-write_rds(tune_res_boost,file="tune_boost.rds")
+write_rds(tune_res_boost,file="tune_boost.rds") # this is us saving this work in a file we can just recall later 
 ```
+
+The last model we will try is the boosted trees model, and we are only tuning for the number of trees. It was taught in lecture that the best values of trees are between 500-1000 but because my graph did the best at 600 we lowered the range to get a better visual.
 
 ```{r}
 boost_tree <- read_rds("tune_boost.rds")
 autoplot(boost_tree)
 ```
 
+It is important to note that a boosting model is done sequentially not simultaneously and it takes a tree that is not the best, observes its residuals, and attempts to make a better one.
+
 ```{r}
-best_boost <- boost_tree %>%
-  collect_metrics()%>%
-  arrange(desc(mean))%>%
-  head(1)
-best_boost
+# finalizing the workflow to get best rmse
+best_boost <- select_best(boost_tree, metric="rmse")
+
+boost_final <- finalize_workflow(boost_wf,best_boost)
+boost_final_fit <- fit(boost_final, data = msocf22_train)
+boost_final_fit
+
+boost_final_rmse <- augment(boost_final_fit, new_data = msocf22_train) %>%
+  rmse(truth = total_impact, estimate = .pred)
+boost_final_rmse
 ```
-```{r}
+
+This last code chunk we are basically getting the best boosted tree rmse the same way we have been.
+
+```{r,message=FALSE,warning=FALSE}
 #after fitting all these models we want to see which ones did the best based on their root square 
 library(tibble)
-best_tibble <- tibble(Models=c("Linear Regression", "Polynomial Rregression","Ridge","Lasso","KNN","Random Forest","Boosted Trees"), RMSE_bestvalues = c(lm_train_rmse,poly_train_rmse$.estimate,ridge_train_rmse$.estimate,lasso_train_rmse$.estimate,knn_train_rmse$.estimate,best_rf$mean,best_boost$mean))
+best_tibble <- tibble(Models=c("Linear Regression", "Polynomial Rregression","Ridge","Lasso","KNN","Random Forest","Boosted Trees"), RMSE_bestvalues = c(lm_train_rmse,poly_train_rmse$.estimate,ridge_train_rmse$.estimate,lasso_train_rmse$.estimate,knn_train_rmse$.estimate,rf_final_rmse$.estimate,boost_final_rmse$.estimate))
 best_tibble
 ```
-```{r}
+
+This tibble is really useful because we can see the best model by comparing all their best rmse values on the training data set. From our table we can see that the boosted tree model performed a good amount better than the next best option which is the random forest model.
+
+```{r,message=FALSE,warning=FALSE}
+
 #Fitting the best model to the testing data 
-augment(lasso_final_fit, new_data = msocf22_test) %>% 
+augment(boost_final_fit, new_data = msocf22_test) %>% 
   rmse(truth = total_impact, estimate = .pred)
+
 ```
 
+The best model was our boosted trees model so we finalized the workflow for it similarly to the other times we did it above when checking our models' testing data. We take the finalized fit from our training data and and then introduce our testing data to that model to see how it performs. Unfortunately in our case our testing rmse was almost 2 times greater than our training mse which indicates an over fitted model.
 
+```{r}
+#visual of test data 
+msocf22_test_res <- predict(boost_final_fit, new_data = msocf22_test %>% select(-total_impact))
+msocf22_test_res %>%
+  head() 
+
+msocf22_test_res <- bind_cols(msocf22_test_res, new_data = msocf22_test %>% select(total_impact))
+msocf22_train_res %>%
+  head()
+# lines 200 - 206 are us getting a prediction versus the actual value from our model 
+msocf22_train_res %>% 
+  ggplot(aes(x=.pred,y=total_impact)) +
+  geom_point(alpha = 0.2)+
+  geom_abline(lty=2)+
+  theme_bw()+
+  coord_obs_pred()
+
+```
+
+Again we use a residual plot to visualize how our model with the testing data performed against the actual predictions. In a residual plot we would like to see a straight line with the data points randomly dispersed around, however here all of the points lie in the bottom left corner indicating we have some problems.
+
+## Conclusion:
+
+Through all the data analysis and changes that were made to this project we ended up seeing that the random forest and boosted tree models were the most compatible with our goal of using the predictors in our recipe to predict the total impact each athlete was enduring. The boosted trees model did a good amount better than the random forest, so we choose to see how the testing data did on this model. The boosted trees model creates trees one at a time trying to create better trees as it goes on. This may have been ideal for our data set because there was not much data to look at, so making trees one at a time to see patterns could have been helpful. The random forest would have averaged all the uncorrelated trees that all could have had the same issues in them giving us an inaccurate prediction. Due to the complex models we were using we may notice that the increase in our rmse from training to testing data in the final model does indicate overfitting in our process. Most of our models showed that their training rmse was actually higher than their testing rmse, but our boosted trees model that performed the best was the opposite and indicated overfitting. In a complex parametric model adding more parameters can add flexibility which is positive but it may also cause overfitting which is not good. Overfitting is explained by the fact that the model has trouble generalizing the data and is so adapted to the training data that it makes inaccurate conclusions. Some causes for overfitting may be that our training data may have still had irrelevant/inaccurate information that would be considered noise. This noise or irrelevant information would confuse our model leading it to give us inaccurate conclusions. Even though we did perform pca to save some predictors the overfitting could mean that maybe we just should have eliminated more parameters. Secondly if our model had been training too long with our training data which did not have many observations it could have easily adapted to it and not been able to distinguish differences that are important. Lastly, due to some of our models being super complex like the random forest and boosted tree the model could have had enough time to learn what kind of noise was in the training data. The problem becomes that as our model has adapted to the noise in the training data set and once it is used on the testing data set it cannot detect the new noise as well and will give us inaccurate predictions. To combat some of these problems in the near future I would take some time to run more eda and look deeper into our predictor relationships. More importantly I would try and collect more data before I did any analysis so that there would be less noise coming from inaccurate data or the lack of data.
+
+## Real world application:
+
+Although this project has not been super helpful for my initial idea I believe with work it will get there. Eventually if this model can make predictions about what predictors cause a higher total impact on a players body we can discover what people should do less of to avoid injury. As we were told a very high total impact means that a player is going out of their comfort zone in a way that may leave them sore for the next day which would most likely be a training. To avoid players getting injured for pushing themselves at training the day after a game when they are sore, we can ultimately see their peak performance at a average total impact level and let them know that this is how they should be playing for games/training. I also hope to one day be able to use this project in a way where we can see whether technique or speed is better for game performance. This would require us to introduce variables like players height, weight, age and would be quite more complex.

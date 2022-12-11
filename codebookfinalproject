@@ -1,42 +1,52 @@
 
-Event_date: this is just what day we the tracker was used
+Event_date: this is just what day the tracker was used
  
-Event_description: tells us if the information is from a game day or training session 
+Event_description: tells us if the information is from a game day or training session(detailed name for training session and time)
 
 Player_name: the player using the tracker 
  
 Event_type: game or not 
 
-Event_location: similar to event_description tells you if the game was away or home, if it was a training 
+Event_location: similar to event_description tells you if the game was away or home (if it was a training it is home)
 
-Event_result: if it was a game this will show win, tie, or draw
-
-
-Total_distance_m:* total distance ran in meters during the time the tracker was on 
-
-Jog, run, sprint, and walk distance all sum up to this value in meters 
-
-Sprint efforts: how many times an athlete breaks velocity of 6 m/s for longer than a second (making sure they are actually sprinting in training)
+Event_result: if it was a game this will show win, tie, or draw(otherwise it says no result)
 
 
+Total_distance_m: total distance ran in meters during the time the tracker was on 
 
-Zones:
-Zone 1 = 0 – 0.8 m/s
-Zone 2 = 0.8 – 1.9 m/s
-Zone 3 = 1.9 – 3.0 m/s
-Zone 4 = 3.0 – 4.2 m/s
-Zone 5 = 4.2 – 5.3 m/s
-Zone 6 = 5.3 – 6.7 m/s
-Zone 7 = 6.7 – 8.1 m/s
-Zone 8 = 8.1 – 11.0+ m/s
+   walk_distance_m(0 – 0.8 m/s), jog_distance_m(0.8 – 1.9 m/s), run_distance_m(1.9 – 4.2 m/s), and sprint_distance_m(6.7 – 8.1 m/s) distances all sum up to total_distance_m in meters and each has a specfic spead in m/s that goes with them 
 
-Hard running efforts: breaking 5.4 m/s for longer than a second
- Hard running meters: total distance that was over 5.4 m/s 
+Sprint_efforts: how many times an athlete breaks velocity of 6 m/s for longer than a second (making sure they are actually sprinting in training)
+
+Intensity: a number that encapsulates  distance, speed and duration of an athletes high velocity efforts, the faster the speed the higher this number 
+
+Zones(speeds for each zone):
+zone_1_distance_m: Zone 1 = 0 – 0.8 m/s
+zone_2_distance_m:Zone 2 = 0.8 – 1.9 m/s
+zone_3_distance_m:Zone 3 = 1.9 – 3.0 m/s
+zone_4_distance_m:Zone 4 = 3.0 – 4.2 m/s
+zone_5_distance_m:Zone 5 = 4.2 – 5.3 m/s
+zone_6_distance_m:Zone 6 = 5.3 – 6.7 m/s
+zone_7_distance_m:Zone 7 = 6.7 – 8.1 m/s
+zone_8_distance_m: Zone 8 = 8.1 – 11.0+ m/s
+
+Hard_running_efforts: breaking 5.4 m/s for longer than a second
+
+Hard_running_m: total distance that was over 5.4 m/s 
  
  
-Work rate m: total distance meters/yards covered relative to time 
+Work_rate_m: total distance meters/yards covered relative to time 
  
-Top speed m: the fastest speed the player hit during the tracker time 
+Top_speed_m: the fastest speed the player hit during the tracker time 
+
+Total_Impact: this is the sum of impact light, impact medium, and impact heavy and it is a numerical value that means " a change in acceleration of at least 5.5g in less than 0.1s" , it is good to note that high values in this column means a player is out of their comfort zone and they may be sore the next day
+
+performance_duration_min: how many minutes an athlete played during the specific event specified in the dataset 
  
-Load 2d-3d are more complex and explained here: 
+Load 2d-3d are more complex and explained here:
+
 https://gametraka.zendesk.com/hc/en-us/articles/360000699156-2D-and-3D-Load-Explained-#:~:text=A%20summation%20of%20all%20horizontal,an%20individual%20dashboard%20in%20GameTraka
+
+Data Citation: 
+
+This data was sent to me by Brandon Valley who works with me for UCSB men's soccer. The data is collected everyday from the team we work with. 
