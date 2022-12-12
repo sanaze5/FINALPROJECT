@@ -542,7 +542,7 @@ autoplot(tune_res_boost)
 write_rds(tune_res_boost,file="tune_boost.rds") # this is us saving this work in a file we can just recall later 
 ```
 
-The last model we will try is the boosted trees model, and we are only tuning for the number of trees. It was taught in lecture that the best values of trees are between 500-1000 but because my graph did the best at 600 we lowered the range to get a better visual.
+The last model we will try is the boosted trees model, and we are only tuning for the number of trees. It was taught in lecture that the best values of trees are between 500-1000 but because my graph did the best at 600 we lowered the range to get a better visual. It is important to note that setting your tree parameter too high may lead to overfitting in a boosted model.
 
 ```{r}
 boost_tree <- read_rds("tune_boost.rds")
